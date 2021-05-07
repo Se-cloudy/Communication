@@ -4,8 +4,8 @@ data_amplitude=randi([0 1],1,1e5);%1e5个OFDM符号
 d_carrier=2e6/1024;%19531.25Hz
 f=1:d_carrier:2e6;
 y_mux=0;
-data=sin(2*pi*f*t);
 for i=1:1024
+    data(i)=sin(2*pi*f(i)*t);
     y_mux=y_mux+data(i);
 end
 
