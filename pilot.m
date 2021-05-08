@@ -75,6 +75,5 @@ pilot_rec=Y_recv(p_f_location);
 H_estimation=pilot_rec./y_pilot;
 
 %%插值扩展
-x = [1:250:501];
-xi = [1:501];
-H_est_interp =interp1(x,H_est,xi, 'spline');
+%分段线性插值：插值点处函数值由连接其最邻近的两侧点的线性函数预测。对超出已知点集的插值点用指定插值方法计算函数值
+H_est_interp =interp1(p_f_location(1:end)',H_estimation,f(1:end)','linear','extrap');
