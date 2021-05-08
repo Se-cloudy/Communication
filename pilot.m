@@ -1,3 +1,8 @@
+%%OFDM中的导频
+%采用了简单的均衡和线性内插
+%信道是平坦假设，后续需要用瑞利替代
+datestr(now,26);
+
 %%一、发端信号y
 %发送1024个子载波，2MHz
 data_amplitude=randi([0 1],1,1e5);%1e5个OFDM符号
@@ -23,8 +28,8 @@ plot(y_mux);
 subtitle('合成信号');
 
 subplot(133)
-y0=abs(fft(y_mux));
-plot(f,y0);
+Y_mux=abs(fft(y_mux));
+plot(f,Y_mux);
 subtitle('spectrum');
 
 %%二、制作导频p
@@ -74,6 +79,27 @@ Y_recv = fft(y_recv_channel);
 pilot_rec=Y_recv(p_f_location);
 H_estimation=pilot_rec./y_pilot;
 
-%%插值扩展
+%%六、插值扩展
 %分段线性插值：插值点处函数值由连接其最邻近的两侧点的线性函数预测。对超出已知点集的插值点用指定插值方法计算函数值
 H_est_interp =interp1(p_f_location(1:end)',H_estimation,f(1:end)','linear','extrap');
+
+%%七、均衡补偿
+%题目没有要求，但是一般都会做
+%采用单抽头均衡，直接除去信道系数
+Y_data=Y_recv;
+Y_equ=Y_data./H_est_interp;
+
+%%验证七：
+figure;
+hold on
+plot(f,Y_data);
+plot(f,Y_equ);
+legend('raw','equalized');
+
+%%八、误码率计算
+[error_num,err]=biterr(Y_equ，Y_mux);
+
+%%九、结果与绘图
+figure();
+plot(SNR,err);
+title('biterror after piloting');
