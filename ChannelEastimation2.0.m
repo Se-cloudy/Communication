@@ -1,9 +1,10 @@
 clear all
 s=rng;
 % close all
+SNR_test = -5:5:15;
 T_interA=1;%A导频符号在时域上的间隔
 T_interC=1;%C导频符号在时域上的间隔
-F_inter=1;%C导频符号在频域上的间隔
+F_inter=4;%C导频符号在频域上的间隔
 D_shift=1;
 Nfft=1024;%子载波为1024个
 N=1e2;%帧数
@@ -24,18 +25,7 @@ L=length(tau1);
 [T5,T6]=meshgrid(tau5,tau6);%可视化的网格
 
 
-
 Pilot=sqrt(2)/2+sqrt(2)/2*1i;%导频
-
-% data0=rand(N*Nfft,1)-0.5;%初始化，随机数种子为66
-% for i=1:N*Nfft
-%     if data0(i)>0
-%     data0(i)=Pilot;
-%     else
-%     data0(i)=-Pilot;
-%     end
-% end
-
 FdataA=reshape(data0,Nfft,[]);%时频矩阵
 Ncp=20;%循环前缀
 
@@ -97,10 +87,10 @@ RayleighSinglePath = comm.RayleighChannel(...
 
  RayleighMultiPath =comm.RayleighChannel(...
     'SampleRate',sample_rate, ...
-    'PathDelays',[0 10 20]/sample_rate, ...
-    'AveragePathGains',[0 -4 -5], ...
+    'PathDelays',[0 10 ]/sample_rate, ...
+    'AveragePathGains',[0 -4 ], ...
     'NormalizePathGains',true, ...
-    'MaximumDopplerShift',10, ...
+    'MaximumDopplerShift',100, ...
      'DopplerSpectrum',doppler('Jakes'), ...
     'RandomStream','mt19937ar with seed', ...
     'Seed',22, ...
@@ -110,24 +100,24 @@ RayleighSinglePath = comm.RayleighChannel(...
 %接收端
  [TdataA_r,h]=RayleighMultiPath(TdataA);%经过信道的接收信号
 %  TdataC_re=RayleighMultiPath(TdataC);%经过信道的接收信号
- for SNR =1000:1000
-     jj=0+1;
+ for SNR =-5:5:15
+     jj=SNR/5 + 2;
  S = RandStream('mt19937ar','Seed',5489);
-TdataA_re =TdataA_r;
-% TdataA_re=awgn(TdataA_r,SNR,'measured',S);%经过信道的接收信号
-%  TdataC_re=awgn(TdataC,0,'measured');%经过信道的接收信号
+% TdataA_re =TdataA_r;
+TdataA_re=awgn(TdataA_r,SNR,'measured',S);%经过信道的接收信号
+% TdataC_re=awgn(TdataC,0,'measured');%经过信道的接收信号
  
-%  TdataS_re=RayleighMultiPath(TdataS);%经过信道的接收信号
+% TdataS_re=RayleighMultiPath(TdataS);%经过信道的接收信号
  
  
  %% 串并转换
  TdataA_re=reshape(TdataA_re,Nfft+Ncp,[]);
  h1=h(:,1);
  h2=h(:,2);
- h3=h(:,3);
+%  h3=h(:,3);
  h1=reshape(h1,Nfft+Ncp,[]);
  h2=reshape(h2,Nfft+Ncp,[]);
- h3=reshape(h3,Nfft+Ncp,[]);
+%  h3=reshape(h3,Nfft+Ncp,[]);
  
  
 %  TdataA_r=reshape(TdataA_r,Nfft+Ncp,[]);
@@ -141,7 +131,7 @@ TdataA_re =TdataA_r;
  TdataA_re=TdataA_re(Ncp+1:end,:);
  h1=h1(Ncp+1:end,:);
  h2=h2(Ncp+1:end,:);
- h3=h3(Ncp+1:end,:);
+%  h3=h3(Ncp+1:end,:);
 %  TdataA_r=TdataA_r(Ncp+1:end,:);
  
 %  TdataC_re=TdataC_re(Ncp+1:end,:);
@@ -161,8 +151,8 @@ TdataA_re =TdataA_r;
  K2=0:1:Nfft-1;
  K2=repmat(K2,N,1);
  K2=K2';
- HA=h1+exp((-2*pi*1i)*K2*10/Nfft).*h2+exp((-2*pi*1i)*K2*20/Nfft).*h3;
- 
+%  HA=h1+exp((-2*pi*1i)*K2*10/Nfft).*h2+exp((-2*pi*1i)*K2*20/Nfft).*h3;
+ HA=h1+exp((-2*pi*1i)*K2*10/Nfft).*h2;
  
 %  HC=FdataC_re./FdataC;
  
@@ -187,16 +177,12 @@ TdataA_re =TdataA_r;
             H_estD(:,((j-1)/T_interC+1))=FdataA_re(mod((j-1)/T_interC+1,C+1):F_inter:Nfft,j)./FdataA(mod((j-1)/T_interC+1,C+1):F_inter:Nfft,j);%信道估计
             end
     end
-
- 
  
 %  图案Ａ内插%分段线性插值：插值点处函数值由连接其最邻近的两侧点的线性函数预测。对超出已知点集的插值点用指定插值方法计算函数值
 loc_A1=1:T_interA:N;%A图案的导频位置
 loc_A2=1:N;%A图案的全部位置
 H_intA=interp1(loc_A1.',H_estA.',loc_A2.','linear','extrap');
 H_intA=H_intA.';
-
-
 
 %图案C内插
 %先在频域内插
@@ -228,64 +214,68 @@ loc_DT2=1:N;%A图案的频域全部位置
 H_intD=interp1(loc_DT1.',H_intDF.',loc_DT2.','linear','extrap');
 H_intD=H_intD.';
 
-
-
-
-
-
 %计算误差
 ERRA=abs((H_intA-HA)./HA);
 ERRC=abs((H_intC-HA)./HA);
 ERRD=abs((H_intD-HA)./HA);
 
-
 MSEA(jj)=sum(sum(ERRA.^2))/(N*Nfft);
 MSEC(jj)=sum(sum(ERRC.^2))/(N*Nfft);
 MSED(jj)=sum(sum(ERRD.^2))/(N*Nfft);
  end
-[MSEA MSEC  MSED]
-display(MSEA)
-display(MSEC)
-display(MSED)
+% [MSEA MSEC  MSED]
+% display(MSEA)
+% display(MSEC)
+% display(MSED)
 
 % 
 %可视化
-figure
-stem3(T3,T4,real(H_estA(1:L,1:L))+0.01)
-hold on
-stem3(T1,T2,real(H_intA(1:L,1:L)))
-hold on
-stem3(T1,T2,real(HA(1:L,1:L)))
-
-xlabel('time')
-ylabel('frequency')
-legend('Eastimation','interpolation','real')
- axis([0 13 0 30 -2.5 2.5])
-
-
-figure
-stem3(T5,T6,real(H_estC(1:L,1:L))+0.01)
-hold on
-stem3(T1,T2,real(H_intC(1:L,1:L)))
+% figure
+% stem3(T3,T4,real(H_estA(1:L,1:L))+0.01)
+% hold on
+% stem3(T1,T2,real(H_intA(1:L,1:L)))
 % hold on
 % stem3(T1,T2,real(HA(1:L,1:L)))
-
-xlabel('time')
-ylabel('frequency')
-legend('Eastimation','interpolation')
-axis([0 13 0 30 -2.5 2.5])
+% 
+% xlabel('time')
+% ylabel('frequency')
+% legend('Eastimation','interpolation','real')
+%  axis([0 13 0 30 -2.5 2.5])
+% 
+% 
+% figure
+% stem3(T5,T6,real(H_estC(1:L,1:L))+0.01)
+% hold on
+% stem3(T1,T2,real(H_intC(1:L,1:L)))
+% % hold on
+% % stem3(T1,T2,real(HA(1:L,1:L)))
+% 
+% xlabel('time')
+% ylabel('frequency')
+% legend('Eastimation','interpolation')
+% axis([0 13 0 30 -2.5 2.5])
+% 
+% figure
+% stem3(T1,T2,real(H_intD(1:L,1:L)))
+% hold on
+% stem3(T1,T2,real(HA(1:L,1:L)))
+% xlabel('time')
+% ylabel('frequency')
+% legend('interpolation','real')
+% axis([0 13 0 30 -2.5 2.5])
 
 figure
-stem3(T1,T2,real(H_intD(1:L,1:L)))
+plot(SNR_test,10*log10(MSEA))
+hold on 
+plot(SNR_test,10*log10(MSEC))
 hold on
-stem3(T1,T2,real(HA(1:L,1:L)))
-xlabel('time')
-ylabel('frequency')
-legend('interpolation','real')
-axis([0 13 0 30 -2.5 2.5])
-
-H_DFTA1=ifft(H_intA);
-H_DFTA2=H_DFTA1(1:20,:);
-H_DFTA3=fft(H_DFTA2,1024);
-ERRA_DFT=abs((H_DFTA3-HA)./HA);
-MSE_DFT=sum(sum(ERRA_DFT.^2))/(N*Nfft)
+plot(SNR_test,10*log10(MSED))
+legend('图案A','图案C','图案D')
+xlabel('SNR/dB')
+ylabel('MSE 10*log')
+% DFT内插还原法
+% H_DFTA1=ifft(H_intA);
+% H_DFTA2=H_DFTA1(1:20,:);
+% H_DFTA3=fft(H_DFTA2,1024);
+% ERRA_DFT=abs((H_DFTA3-HA)./HA);
+% MSE_DFT=sum(sum(ERRA_DFT.^2))/(N*Nfft)
